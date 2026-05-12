@@ -1,0 +1,5 @@
+﻿{
+  "role": "data_analyst",
+  "resource": "aggregated_metrics",
+  "action": "read"
+}

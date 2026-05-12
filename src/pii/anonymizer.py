@@ -1,5 +1,4 @@
-# src/pii/anonymizer.py
-import hashlib
+﻿import re
 import pandas as pd
 from presidio_anonymizer import AnonymizerEngine
 from presidio_anonymizer.entities import OperatorConfig
@@ -18,8 +17,41 @@ def fake_phone() -> str:
     return prefix + fake.numerify("########")
 
 
-def sha256_hash(value: str) -> str:
-    return hashlib.sha256(str(value).encode("utf-8")).hexdigest()
+def fake_safe_email() -> str:
+    suffix = fake.uuid4().replace("-", "")
+    return f"user_{suffix}@anon.medviet.local"
+
+
+def digits_only(value: str) -> str:
+    return re.sub(r"\D", "", str(value))
+
+
+def is_email(value: str) -> bool:
+    return re.search(
+        r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b",
+        str(value)
+    ) is not None
+
+
+def is_cccd(value: str) -> bool:
+    digits = digits_only(value)
+
+    # Raw CCCD is 12 digits. pandas may remove leading zero, so allow 11 or 12.
+    return len(digits) in (11, 12)
+
+
+def is_vn_phone(value: str) -> bool:
+    digits = digits_only(value)
+
+    # Normal string: 0912345678
+    if re.fullmatch(r"0[35789]\d{8}", digits):
+        return True
+
+    # pandas may remove leading zero: 0912345678 -> 912345678
+    if re.fullmatch(r"[35789]\d{8}", digits):
+        return True
+
+    return False
 
 
 class MedVietAnonymizer:
@@ -29,14 +61,6 @@ class MedVietAnonymizer:
         self.anonymizer = AnonymizerEngine()
 
     def anonymize_text(self, text: str, strategy: str = "replace") -> str:
-        """
-        Anonymize text với strategy được chọn.
-
-        Strategies:
-        - replace: thay bằng fake data
-        - mask: che một phần dữ liệu
-        - hash: băm SHA-256 một chiều
-        """
         text = str(text)
         results = detect_pii(text, self.analyzer)
 
@@ -46,35 +70,17 @@ class MedVietAnonymizer:
         if strategy == "replace":
             operators = {
                 "PERSON": OperatorConfig("replace", {"new_value": fake.name()}),
-                "EMAIL_ADDRESS": OperatorConfig("replace", {"new_value": fake.email()}),
+                "EMAIL_ADDRESS": OperatorConfig("replace", {"new_value": fake_safe_email()}),
                 "VN_CCCD": OperatorConfig("replace", {"new_value": fake_cccd()}),
                 "VN_PHONE": OperatorConfig("replace", {"new_value": fake_phone()}),
             }
-
         elif strategy == "mask":
             operators = {
-                "PERSON": OperatorConfig("mask", {
-                    "masking_char": "*",
-                    "chars_to_mask": 8,
-                    "from_end": False
-                }),
-                "EMAIL_ADDRESS": OperatorConfig("mask", {
-                    "masking_char": "*",
-                    "chars_to_mask": 6,
-                    "from_end": False
-                }),
-                "VN_CCCD": OperatorConfig("mask", {
-                    "masking_char": "*",
-                    "chars_to_mask": 8,
-                    "from_end": False
-                }),
-                "VN_PHONE": OperatorConfig("mask", {
-                    "masking_char": "*",
-                    "chars_to_mask": 6,
-                    "from_end": False
-                }),
+                "PERSON": OperatorConfig("mask", {"masking_char": "*", "chars_to_mask": 8, "from_end": False}),
+                "EMAIL_ADDRESS": OperatorConfig("mask", {"masking_char": "*", "chars_to_mask": 6, "from_end": False}),
+                "VN_CCCD": OperatorConfig("mask", {"masking_char": "*", "chars_to_mask": 8, "from_end": False}),
+                "VN_PHONE": OperatorConfig("mask", {"masking_char": "*", "chars_to_mask": 6, "from_end": False}),
             }
-
         elif strategy == "hash":
             operators = {
                 "PERSON": OperatorConfig("hash", {"hash_type": "sha256"}),
@@ -82,7 +88,6 @@ class MedVietAnonymizer:
                 "VN_CCCD": OperatorConfig("hash", {"hash_type": "sha256"}),
                 "VN_PHONE": OperatorConfig("hash", {"hash_type": "sha256"}),
             }
-
         else:
             raise ValueError(f"Unsupported anonymization strategy: {strategy}")
 
@@ -95,24 +100,6 @@ class MedVietAnonymizer:
         return anonymized.text
 
     def anonymize_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Anonymize toàn bộ DataFrame.
-
-        Giữ nguyên:
-        - patient_id
-        - benh
-        - ket_qua_xet_nghiem
-        - ngay_kham
-
-        Thay thế:
-        - ho_ten
-        - cccd
-        - ngay_sinh
-        - so_dien_thoai
-        - email
-        - dia_chi
-        - bac_si_phu_trach
-        """
         df_anon = df.copy()
 
         if "ho_ten" in df_anon.columns:
@@ -122,7 +109,6 @@ class MedVietAnonymizer:
             df_anon["cccd"] = [fake_cccd() for _ in range(len(df_anon))]
 
         if "ngay_sinh" in df_anon.columns:
-            # Generalize ngày sinh: chỉ giữ năm sinh
             df_anon["ngay_sinh"] = df_anon["ngay_sinh"].astype(str).apply(
                 lambda x: x[-4:] if len(x) >= 4 else "UNKNOWN"
             )
@@ -131,7 +117,7 @@ class MedVietAnonymizer:
             df_anon["so_dien_thoai"] = [fake_phone() for _ in range(len(df_anon))]
 
         if "email" in df_anon.columns:
-            df_anon["email"] = [fake.email() for _ in range(len(df_anon))]
+            df_anon["email"] = [fake_safe_email() for _ in range(len(df_anon))]
 
         if "dia_chi" in df_anon.columns:
             df_anon["dia_chi"] = [fake.address() for _ in range(len(df_anon))]
@@ -141,14 +127,7 @@ class MedVietAnonymizer:
 
         return df_anon
 
-    def calculate_detection_rate(
-        self,
-        original_df: pd.DataFrame,
-        pii_columns: list
-    ) -> float:
-        """
-        Tính % PII được detect thành công.
-        """
+    def calculate_detection_rate(self, original_df: pd.DataFrame, pii_columns: list) -> float:
         total = 0
         detected = 0
 
@@ -158,7 +137,24 @@ class MedVietAnonymizer:
 
             for value in original_df[col].astype(str):
                 total += 1
-                results = detect_pii(value, self.analyzer)
+                value_str = str(value)
+
+                if col == "cccd":
+                    if is_cccd(value_str):
+                        detected += 1
+                    continue
+
+                if col == "so_dien_thoai":
+                    if is_vn_phone(value_str):
+                        detected += 1
+                    continue
+
+                if col == "email":
+                    if is_email(value_str):
+                        detected += 1
+                    continue
+
+                results = detect_pii(value_str, self.analyzer)
                 if len(results) > 0:
                     detected += 1
 

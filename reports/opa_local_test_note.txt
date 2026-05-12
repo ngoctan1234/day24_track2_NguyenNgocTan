@@ -1,0 +1,17 @@
+﻿OPA Local Test Note
+===================
+
+OPA policy-as-code file was created at:
+- policies/data_access.rego
+
+Test input files were created at:
+- policies/opa_tests/ml_engineer_raw_denied.json
+- policies/opa_tests/ml_engineer_training_allowed.json
+- policies/opa_tests/data_analyst_metrics_allowed.json
+
+Local CLI execution was skipped because the `opa` command is not installed in the current Windows environment.
+
+Expected policy decisions:
+- ml_engineer reading patient_data: allow = false
+- ml_engineer reading training_data: allow = true
+- data_analyst reading aggregated_metrics: allow = true

@@ -1,0 +1,5 @@
+﻿{
+  "role": "ml_engineer",
+  "resource": "patient_data",
+  "action": "read"
+}

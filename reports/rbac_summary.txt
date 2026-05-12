@@ -1,0 +1,14 @@
+﻿RBAC API Test Summary
+=====================
+
+Base URL: http://localhost:8003
+
+Expected results:
+- rbac_bob_raw_403.txt: Bob cannot read raw patient_data, expected 403 message.
+- rbac_bob_anonymized.txt: Bob can read anonymized training_data.
+- rbac_carol_metrics.txt: Carol can read aggregated_metrics.
+- rbac_bob_delete_403.txt: Bob cannot delete patient_data, expected 403 message.
+- rbac_alice_delete.txt: Alice can delete patient_data.
+
+Note:
+Alice raw endpoint was tested manually but not saved because it returns raw PII.

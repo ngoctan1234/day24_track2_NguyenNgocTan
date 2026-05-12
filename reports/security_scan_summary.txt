@@ -1,0 +1,19 @@
+﻿Security Scanning Summary
+=========================
+
+Tool: Bandit
+Scope: src/
+Output: reports/bandit_report.json
+
+Purpose:
+- Scan Python source code for common security issues.
+- Check for risky patterns such as hardcoded secrets, insecure functions, weak crypto usage, unsafe subprocess calls.
+
+Result:
+- Bandit completed successfully.
+- JSON report generated at reports/bandit_report.json.
+
+Notes:
+- .vault_key is excluded from submission.
+- data/raw/ is excluded from submission.
+- Raw PII should not be committed or submitted.

@@ -1,0 +1,30 @@
+﻿# Secrets / keys
+.vault_key
+*.key
+*.pem
+*.env
+
+# Raw PII data - do not submit
+data/raw/
+data/raw/patients_raw.csv
+
+# Python cache
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local logs
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Optional: avoid submitting raw API outputs containing PII
+reports/rbac_alice_raw.txt

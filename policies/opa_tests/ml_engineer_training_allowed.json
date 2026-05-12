@@ -1,0 +1,5 @@
+﻿{
+  "role": "ml_engineer",
+  "resource": "training_data",
+  "action": "read"
+}
